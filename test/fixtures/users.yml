@@ -1,0 +1,9 @@
+user1:
+  provider: email
+  uid: user@example.com
+  email: user@example.com
+
+user2:
+  provider: email
+  uid: other_user@example.com
+  email: other_user@example.com
