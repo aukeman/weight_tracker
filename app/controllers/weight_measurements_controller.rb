@@ -22,6 +22,7 @@ class WeightMeasurementsController < ApplicationController
 
   # PATCH/PUT /weight_measurements/1
   def update
+
     if @weight_measurement.update(weight_measurement_params)
       render json: @weight_measurement
     else
@@ -37,11 +38,18 @@ class WeightMeasurementsController < ApplicationController
   private
     # Use callbacks to share common setup or constraints between actions.
     def set_weight_measurement
-      @weight_measurement = WeightMeasurement.find_by(user: current_user, id: params[:id])
+      @weight_measurement = WeightMeasurement.find_by(user: current_user, day: params[:day])
+
+      unless @weight_measurement
+        render json: {}, status: :not_found
+      end
     end
 
     # Only allow a trusted parameter "white list" through.
     def weight_measurement_params
-      params.fetch(:weight_measurement).permit(:day, :weight).merge(user: current_user)
+      params
+        .require(:weight_measurement)
+        .permit(:day, :weight)
+        .merge(user: current_user)
     end
 end
