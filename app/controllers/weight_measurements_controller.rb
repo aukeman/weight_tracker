@@ -23,7 +23,7 @@ class WeightMeasurementsController < ApplicationController
   # PATCH/PUT /weight_measurements/1
   def update
 
-    if @weight_measurement.update(weight_measurement_params)
+    if @weight_measurement.update(weight_measurement_params.permit(:weight))
       render json: @weight_measurement
     else
       render json: @weight_measurement.errors, status: :unprocessable_entity
@@ -38,11 +38,7 @@ class WeightMeasurementsController < ApplicationController
   private
     # Use callbacks to share common setup or constraints between actions.
     def set_weight_measurement
-      @weight_measurement = WeightMeasurement.find_by(user: current_user, day: params[:day])
-
-      unless @weight_measurement
-        render json: {}, status: :not_found
-      end
+      @weight_measurement = WeightMeasurement.find_by!(user: current_user, day: params[:day])
     end
 
     # Only allow a trusted parameter "white list" through.

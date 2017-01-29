@@ -41,10 +41,24 @@ class WeightMeasurementsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "should not weight_measurement if not authorized" do
+  test "should only update weight value of weight_measurement" do
+    patch weight_measurement_url(@one.day), headers: @auth_headers, params: { weight_measurement: {day: 0, weight: 0, user_id: 0} }, as: :json
 
+    @one.reload
+
+    assert_not_equal 0, @one.day
+    assert_not_equal 0, @one.user_id
+    assert_equal 0, @one.weight
+  end
+
+  test "should not update weight_measurement if not authorized" do
     patch weight_measurement_url(@one.day), headers: @bad_headers, params: { weight_measurement: {day: @one.day, weight: @one.weight-3} }, as: :json
     assert_response :unauthorized
+  end
+
+  test "should not update weight_measurement if not found" do
+    patch weight_measurement_url(666), headers: @auth_headers, params: { weight_measurement: {day: 66, weight: @one.weight-3} }, as: :json
+    assert_response :not_found
   end
 
   test "should destroy weight_measurement" do
@@ -55,6 +69,14 @@ class WeightMeasurementsControllerTest < ActionDispatch::IntegrationTest
     assert_response 204
   end
 
+  test "should not destroy weight_measurement if not found" do
+    assert_no_difference('WeightMeasurement.count') do
+      delete weight_measurement_url(666), headers: @auth_headers, as: :json
+    end
+
+    assert_response :not_found
+  end
+
   test "should not destroy weight_measurement if not authorized" do
     assert_no_difference('WeightMeasurement.count') do
       delete weight_measurement_url(@one.day), headers: @bad_headers, as: :json
@@ -62,5 +84,7 @@ class WeightMeasurementsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :unauthorized
   end
+
+
 
 end
