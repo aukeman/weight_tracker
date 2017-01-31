@@ -42,13 +42,13 @@ class WeightMeasurementsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should only update weight value of weight_measurement" do
-    patch weight_measurement_url(@one.day), headers: @auth_headers, params: { weight_measurement: {day: 0, weight: 0, user_id: 0} }, as: :json
+    patch weight_measurement_url(@one.day), headers: @auth_headers, params: { weight_measurement: {day: 1, weight: 1, user_id: @other.user.id} }, as: :json
 
     @one.reload
 
-    assert_not_equal 0, @one.day
-    assert_not_equal 0, @one.user_id
-    assert_equal 0, @one.weight
+    assert_not_equal 1, @one.day
+    assert_not_equal @other.user.id, @one.user_id
+    assert_equal 1, @one.weight
   end
 
   test "should not update weight_measurement if not authorized" do
@@ -84,7 +84,4 @@ class WeightMeasurementsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :unauthorized
   end
-
-
-
 end
