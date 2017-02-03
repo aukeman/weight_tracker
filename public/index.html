@@ -1,0 +1,42 @@
+<html>
+  <head>
+    <title>Weight</title>
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"
+	    integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+	    crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <div>
+      <span>email</span><input type="text" id="email"></input>
+      <span>password</span><input type="password" id="password"></input>
+      <button id="login">Login</button>
+    </div>
+  </body>
+  <script>
+
+var credentials = {
+    token: null,
+    uid: null,
+    client: null
+};
+
+$(function() {
+    $('#login').click(function() { 
+	$.post({ url: '/auth/sign_in',
+		 dataType: 'json',
+		 contentType: 'application/json',
+		 data: JSON.stringify({ "email": $('#email').val(), "password": $('#password').val() }) })
+	    .done(function(json, status, jqXHR) {
+		credentials.uid = jqXHR.getResponseHeader('uid');
+		credentials.client = jqXHR.getResponseHeader('client');
+		credentials.token = jqXHR.getResponseHeader('access-token');
+	    }).fail(function(xhr, status, error) {
+		console.log("Error: " + error);
+		console.log("Status: " + status);
+		console.dir(xhr);
+		alert("couldn't log in");
+	    });
+    });
+});
+  </script>
+</html>
