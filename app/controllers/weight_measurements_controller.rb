@@ -4,7 +4,7 @@ class WeightMeasurementsController < ApplicationController
 
   # GET /weight_measurements
   def index
-    @weight_measurements = WeightMeasurement.where(user: current_user).order(:day).all
+    @weight_measurements = WeightMeasurement.where(user: current_user).order(day: :desc).all
 
     render json: @weight_measurements
   end

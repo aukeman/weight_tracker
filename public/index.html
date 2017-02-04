@@ -6,37 +6,164 @@
 	    crossorigin="anonymous"></script>
   </head>
   <body>
-    <div>
-      <span>email</span><input type="text" id="email"></input>
-      <span>password</span><input type="password" id="password"></input>
-      <button id="login">Login</button>
-    </div>
+    <div id="errors-container"></div>
   </body>
   <script>
 
-var credentials = {
-    token: null,
-    uid: null,
-    client: null
-};
+var login_html =
+'<div id="login-container">' +
+'<span class="label">email</span><input type="text" id="email"></input>' +
+'<span class="label">password</span><input type="password" id="password"></input>'+
+'<button id="login">Login</button>' +
+'</div>'
+
+var table_html = 
+'<table id="weight-table"> ' +
+'<thead>' +
+'<tr>' +
+'<th>Date</th>' +
+'<th>Weight</th>' +
+'</tr>' +
+'</thead>' +
+'<tbody>' +
+'</tbody>' +
+'</table>'
+
+var weight_html = 
+'<tr>'+
+'<td>'+
+'{{date_string}}'+
+'</td>' +
+'<td>'+
+'<input data-weight-measurement-day="{{day}}" type="text" value="{{weight_value}}"></input>'+
+'</td>'+
+'<td><button disabled="true" data-weight-measurement-day="{{day}}" class="save-button" type="button">&#10003;</button></td>'+
+'<td><button disabled="true" data-weight-measurement-day="{{day}}" class="cancel-button" type="button">&#128683;</button></td>'+
+'</tr>';
+
+var credentials = null;
+
+function show_error(message){
+    $('#errors-container').append('<span class="error">'+message+'</span>');
+}
+
+function clear_errors(){
+    $('#errors-container .error').remove();
+}
+
+function handle_error(xhr, status, error){
+    console.log("Error: " + error);
+    console.log("Status: " + status);
+    console.dir(xhr);
+    show_error(error);
+}
+
+function save_credentials(jqXHR){
+    localStorage.setItem(
+	'credentials',
+	JSON.stringify({ "uid": jqXHR.getResponseHeader('uid'),
+			 "client": jqXHR.getResponseHeader('client'),
+			 "access-token": jqXHR.getResponseHeader('access-token') }));
+}
+
+function get_credentials(){
+    return JSON.parse(localStorage.getItem('credentials'));
+}
+
+function date_from(day_from_epoch){
+    return new Date(day_from_epoch * 86400 * 1000);
+}
+
+function day_from(element){
+    return element.getAttribute('data-weight-measurement-day');
+}
+
+function weight_input(day){
+    return $('#weight-table tbody input[data-weight-measurement-day="'+day+'"]');
+}
+
+function weight_buttons(day){
+    return $('#weight-table tbody button[data-weight-measurement-day="'+day+'"]');
+}
+
+function weight_updated(e){
+    var day = day_from(e.currentTarget);
+    weight_buttons(day).prop('disabled', '');
+}
+
+function save_weight(e){
+    var day = day_from(e.currentTarget);
+    
+}
+
+function cancel_weight(e){
+    var day = day_from(e.currentTarget);
+    
+    var input=weight_input(day);
+    input.val( input.attr('value') );
+
+    weight_buttons(day).prop('disabled', 'true');
+}
+
+function render_weight_table(weight_measurements){
+    var rows = []
+    for (var i = 0; i < weight_measurements.length; ++i){
+	var day = weight_measurements[i].day
+	var date = date_from(day);
+	var weight = weight_measurements[i].weight;
+	rows.push( 
+	    weight_html
+		.replace(/{{date_string}}/g, date)
+		.replace(/{{day}}/g, weight_measurements[i].day)
+		.replace(/{{weight_value}}/g, weight));
+    }
+
+    $('#weight-table tbody').html( rows.join() )
+    $('#weight-table tbody input[type="text"]').on('input paste', weight_updated);
+    $('#weight-table tbody button.save-button').click(save_weight);
+    $('#weight-table tbody button.cancel-button').click(cancel_weight);
+}
+
+function load_weight_measurements(){
+    $.get({ url: '/weight_measurements',
+	    dataType: 'json',
+	    cache: false,
+	    headers: get_credentials() })
+	.done(function(json, status, jqXHR){
+	    save_credentials(jqXHR);
+	    render_weight_table(json);
+	}).fail(handle_error);
+}
+
+function on_login(){
+    $('#login-container').remove()
+    $('body').append(table_html);
+
+    load_weight_measurements();
+}
+
+function login(){
+    clear_errors();
+    $.post({ url: '/auth/sign_in',
+	     dataType: 'json',
+	     contentType: 'application/json',
+	     data: JSON.stringify({ "email": $('#email').val(), "password": $('#password').val() }) })
+	.done(function(json, status, jqXHR) {
+	    save_credentials(jqXHR);
+	    on_login();
+	}).fail(handle_error)
+}
 
 $(function() {
-    $('#login').click(function() { 
-	$.post({ url: '/auth/sign_in',
-		 dataType: 'json',
-		 contentType: 'application/json',
-		 data: JSON.stringify({ "email": $('#email').val(), "password": $('#password').val() }) })
-	    .done(function(json, status, jqXHR) {
-		credentials.uid = jqXHR.getResponseHeader('uid');
-		credentials.client = jqXHR.getResponseHeader('client');
-		credentials.token = jqXHR.getResponseHeader('access-token');
-	    }).fail(function(xhr, status, error) {
-		console.log("Error: " + error);
-		console.log("Status: " + status);
-		console.dir(xhr);
-		alert("couldn't log in");
-	    });
-    });
+    if ( !get_credentials() ){
+	$('body').append(login_html);
+	$('#login').click(login);
+    }
+    else{
+	on_login();
+    }
 });
+
+// new Date(2017, 2, -1).getDate()
   </script>
 </html>
