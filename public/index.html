@@ -29,6 +29,18 @@ var table_html =
 '</tbody>' +
 '</table>'
 
+var new_weight_html = 
+'<tr id="new-weight-row">'+
+'<td>'+
+'<input id="new-weight-date" type="text" value="{{date_string}}"></input>'+
+'</td>' +
+'<td>'+
+'<input id="new-weight" type="text"></input>'+
+'</td>'+
+'<td><button disabled="true" class="save-button" type="button">&#10003;</button></td>'+
+'<td><button disabled="true" class="cancel-button" type="button">&#128683;</button></td>'+
+'</tr>';
+
 var weight_html = 
 '<tr>'+
 '<td>'+
@@ -74,16 +86,54 @@ function date_from(day_from_epoch){
     return new Date(day_from_epoch * 86400 * 1000);
 }
 
-function day_from(element){
-    return element.getAttribute('data-weight-measurement-day');
+function month_from(date){
+    var month = date.getUTCMonth() + 1;
+    return month < 10 ? '0' + month : month + '';
+}
+
+function year_from(date){
+    return date.getUTCFullYear();
+}
+
+function day_of_month_from(date){
+    var day_of_month = date.getUTCDate();
+    return day_of_month < 10 ? '0' + day_of_month : day_of_month;
+}
+
+function date_string_from(date){
+    return year_from(date) + '-' + month_from(date) + '-' + day_of_month_from(date);
+}
+
+function day_from(o){
+    if ( o.getAttribute ){
+	return o.getAttribute('data-weight-measurement-day');
+    }
+    else if ( o.getTime ){
+	return Math.floor(o.getTime() / 1000 / 86400);
+    }
+    else if ( typeof o === 'string' ){
+	return day_from( new Date(o) )
+    }
 }
 
 function weight_input(day){
     return $('#weight-table tbody input[data-weight-measurement-day="'+day+'"]');
 }
 
+function new_weight_date_input(){
+    return $('#weight-table tbody tr#new-weight-row input#new-weight-date');
+}
+
+function new_weight_input(){
+    return $('#weight-table tbody tr#new-weight-row input#new-weight');
+}
+
 function weight_buttons(day){
     return $('#weight-table tbody button[data-weight-measurement-day="'+day+'"]');
+}
+
+function new_weight_buttons(){
+    return $('#weight-table tbody tr#new-weight-row button');
 }
 
 function weight_updated(e){
@@ -91,9 +141,57 @@ function weight_updated(e){
     weight_buttons(day).prop('disabled', '');
 }
 
+function new_weight_updated(){
+    var day = day_from( new_weight_date_input().val() );
+    
+    if ( isNaN(day) ){
+	new_weight_buttons().filter('.save-button').prop('disabled', 'true');
+	new_weight_buttons().filter('.cancel-button').prop('disabled', '');
+    }
+    else{
+	new_weight_buttons().prop('disabled', '');
+    }
+}
+
 function save_weight(e){
     var day = day_from(e.currentTarget);
     
+    var input=weight_input(day);
+
+    $.ajax({ method: 'PUT',
+	     url: '/weight_measurements/' + day,
+	     dataType: 'json',
+	     contentType: 'application/json',
+	     data: JSON.stringify({ weight: input.val() }),
+	     headers: get_credentials() })
+	.done(function(json, status, jqXHR) {
+	    save_credentials(jqXHR);
+	    input.attr( 'value', input.val() );
+	    weight_buttons(day).prop('disabled', 'true');
+	}).fail(handle_error)
+}
+
+function save_new_weight(e){
+    var day = day_from( new_weight_date_input().val() );
+    var weight = new_weight_input().val();
+
+    $.post({ url: '/weight_measurements/',
+	     dataType: 'json',
+	     contentType: 'application/json',
+	     data: JSON.stringify({ day: day, weight: weight }),
+	     headers: get_credentials() })
+	.done(function(json, status, jqXHR) {
+	    save_credentials(jqXHR);
+	    weight_buttons(day).prop('disabled', 'true');
+	    load_weight_measurements()
+	}).fail(handle_error)
+}
+
+function cancel_new_weight(e){
+    new_weight_date_input().val( new_weight_date_input().attr('value') );
+    new_weight_input().val('');
+
+    new_weight_buttons().prop('disabled', 'true');
 }
 
 function cancel_weight(e){
@@ -106,22 +204,36 @@ function cancel_weight(e){
 }
 
 function render_weight_table(weight_measurements){
-    var rows = []
+
+    var todays_date = new Date();
+    var today = day_from(todays_date);
+    var new_date_string = date_string_from(todays_date);
+    for (var i = 0; i < weight_measurements.length; ++i){
+	if (weight_measurements[i].day == today){
+	    new_date_string = '';
+	}
+    }
+
+    var rows = [ new_weight_html.replace(/{{date_string}}/g, new_date_string) ]
     for (var i = 0; i < weight_measurements.length; ++i){
 	var day = weight_measurements[i].day
 	var date = date_from(day);
 	var weight = weight_measurements[i].weight;
 	rows.push( 
 	    weight_html
-		.replace(/{{date_string}}/g, date)
+		.replace(/{{date_string}}/g, date_string_from(date))
 		.replace(/{{day}}/g, weight_measurements[i].day)
 		.replace(/{{weight_value}}/g, weight));
     }
 
     $('#weight-table tbody').html( rows.join() )
-    $('#weight-table tbody input[type="text"]').on('input paste', weight_updated);
-    $('#weight-table tbody button.save-button').click(save_weight);
-    $('#weight-table tbody button.cancel-button').click(cancel_weight);
+    $('#weight-table tbody tr#new-weight-row input[type="text"]').on('input paste', new_weight_updated);
+    $('#weight-table tbody tr#new-weight-row button.save-button').click(save_new_weight);
+    $('#weight-table tbody tr#new-weight-row button.cancel-button').click(cancel_new_weight);
+
+    $('#weight-table tbody input[type="text"][data-weight-measurement-day]').on('input paste', weight_updated);
+    $('#weight-table tbody button[data-weight-measurement-day].save-button').click(save_weight);
+    $('#weight-table tbody button[data-weight-measurement-day].cancel-button').click(cancel_weight);
 }
 
 function load_weight_measurements(){
